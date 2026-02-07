@@ -77,7 +77,7 @@ function floatiesInit(){
 
     const x = rand(0, 100).toFixed(2) + "vw";
     const dx = "0vw";
-    const sway = rand(-18, 18).toFixed(2) + "px";
+   const sway = "0px";
     const o = rand(0.35, 0.95).toFixed(2);
 
     // Much slower
@@ -248,4 +248,5 @@ window.addEventListener('load', () => {
   constellationInit();
   initCarousels();
 });
+
 
