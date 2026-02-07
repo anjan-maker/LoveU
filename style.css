@@ -374,9 +374,10 @@ p{ margin: 10px 0; color:#151515; }
   font-size: 16px;
   opacity: 0.85;
   filter: drop-shadow(0 6px 14px rgba(0,0,0,0.20));
-  animation-name: fall, sway, spin;
-  animation-timing-function: linear, ease-in-out, linear;
-  animation-iteration-count: infinite, infinite, infinite;
+animation-name: fall;
+animation-timing-function: linear;
+animation-iteration-count: infinite;
+
   will-change: transform, opacity;
   user-select:none;
 }
@@ -437,3 +438,4 @@ p{ margin: 10px 0; color:#151515; }
   color: rgba(255,255,255,0.72);
   font-weight:600;
 }
+
