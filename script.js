@@ -1,272 +1,250 @@
-(function () {
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+// ===== Utilities =====
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
-  // ===== Scroll reveal (storybook) =====
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach(e => {
-      if (e.isIntersecting) e.target.classList.add("show");
-    });
-  }, { threshold: 0.12 });
+// ===== Typewriter (Home title) =====
+function typewriter(){
+  const el = $('[data-typewriter]');
+  if (!el) return;
 
-  document.querySelectorAll(".reveal").forEach(el => io.observe(el));
+  const text = el.textContent.trim();
+  el.textContent = "";
+  const span = document.createElement("span");
+  span.className = "type";
+  el.appendChild(span);
 
-  // ===== Typewriter =====
-  const tw = document.querySelectorAll("[data-typewriter]");
-  tw.forEach(el => {
-    const full = el.textContent.trim();
-    el.textContent = "";
-    const span = document.createElement("span");
-    span.className = "type";
-    el.appendChild(span);
+  let i = 0;
+  const tick = () => {
+    span.textContent = text.slice(0, i++);
+    if (i <= text.length) requestAnimationFrame(tick);
+  };
+  tick();
+}
 
-    if (reduceMotion) { span.textContent = full; span.classList.remove("type"); return; }
+// ===== Music toggle (loop + remember) =====
+function musicInit(){
+  const audio = $('#bgm');
+  const btn = $('#musicBtn');
+  if (!audio || !btn) return;
 
-    let i = 0;
-    const tick = () => {
-      i += 1;
-      span.textContent = full.slice(0, i);
-      if (i < full.length) setTimeout(tick, 22);
-      else span.classList.remove("type");
-    };
-    setTimeout(tick, 250);
-  });
+  const label = btn.querySelector('.label');
 
-  // ===== Floating hearts/petals =====
-  const EMOJIS = ["💗","💖","💘","🌸","🌺","🌷","✨","💞","🪷"];
-  const bg = document.getElementById("bg-floaties");
+  const setUI = (on) => {
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    label.textContent = on ? 'Music: On' : 'Music: Off';
+  };
 
-  if (bg && !reduceMotion) {
-    const COUNT = 140;
-    const rand = (a, b) => a + Math.random() * (b - a);
+  const saved = localStorage.getItem('musicOn') === '1';
+  setUI(saved);
 
-    for (let i = 0; i < COUNT; i++) {
-      const s = document.createElement("span");
-      s.className = "floaty";
-      s.textContent = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-
-      const x = rand(0, 100);
-      s.style.setProperty("--x", `${x}vw`);
-      s.style.setProperty("--dx", `${rand(-10, 10)}vw`);
-      s.style.setProperty("--sway", `${rand(-16, 16)}px`);
-      s.style.setProperty("--o", `${rand(0.25, 0.85)}`);
-
-      const size = rand(14, 26);
-      s.style.fontSize = `${size}px`;
-
-      const durFall = rand(9, 18);
-      const durSway = rand(2.6, 6.2);
-      const durSpin = rand(3.5, 9.5);
-
-      s.style.animationDuration = `${durFall}s, ${durSway}s, ${durSpin}s`;
-      s.style.animationDelay = `${rand(-durFall, 0)}s, ${rand(-durSway, 0)}s, ${rand(-durSpin, 0)}s`;
-
-      bg.appendChild(s);
-    }
+  if (saved){
+    audio.volume = 0.8;
+    audio.play().catch(() => { /* needs user gesture */ });
   }
 
-  // ===== Constellation background (canvas) =====
-  const canvas = document.getElementById("constellation");
-  if (canvas && !reduceMotion) {
-    const ctx = canvas.getContext("2d");
-    let w, h, pts;
+  btn.addEventListener('click', async () => {
+    const on = !(localStorage.getItem('musicOn') === '1');
+    localStorage.setItem('musicOn', on ? '1' : '0');
+    setUI(on);
 
-    const rand = (a, b) => a + Math.random() * (b - a);
-    const resize = () => {
-      w = canvas.width = Math.floor(window.innerWidth * (window.devicePixelRatio || 1));
-      h = canvas.height = Math.floor(window.innerHeight * (window.devicePixelRatio || 1));
-      canvas.style.width = "100%";
-      canvas.style.height = "100%";
+    if (on){
+      audio.volume = 0.8;
+      try { await audio.play(); } catch (e) {}
+    } else {
+      audio.pause();
+    }
+  });
+}
 
-      const count = Math.floor(Math.min(140, Math.max(70, (window.innerWidth * window.innerHeight) / 14000)));
-      pts = new Array(count).fill(0).map(() => ({
-        x: rand(0, w),
-        y: rand(0, h),
-        vx: rand(-0.32, 0.32) * (window.devicePixelRatio || 1),
-        vy: rand(-0.32, 0.32) * (window.devicePixelRatio || 1),
-        r: rand(0.8, 1.9) * (window.devicePixelRatio || 1)
-      }));
-    };
+// ===== Dense, slow floaties (A2 mix) =====
+function floatiesInit(){
+  const host = $('#bg-floaties');
+  if (!host) return;
 
-    const draw = () => {
-      ctx.clearRect(0, 0, w, h);
+  host.innerHTML = "";
 
-      // dots
-      ctx.fillStyle = "rgba(255,255,255,0.55)";
-      for (const p of pts) {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fill();
-      }
+  // A2 mix: petals + hearts + sparkles
+  const glyphs = ["🌸","🌷","💗","💖","✨","💐","🌺","🌼","💕","✨"];
+  const COUNT = 360; // denser
 
-      // lines
-      for (let i = 0; i < pts.length; i++) {
-        for (let j = i + 1; j < pts.length; j++) {
-          const a = pts[i], b = pts[j];
-          const dx = a.x - b.x, dy = a.y - b.y;
-          const d2 = dx*dx + dy*dy;
-          const max = (150 * (window.devicePixelRatio || 1));
-          const max2 = max * max;
-          if (d2 < max2) {
-            const t = 1 - (d2 / max2);
-            ctx.strokeStyle = `rgba(255,105,180,${0.12 * t})`;
-            ctx.lineWidth = 1 * (window.devicePixelRatio || 1);
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
-            ctx.stroke();
-          }
+  const rand = (a,b) => a + Math.random()*(b-a);
+
+  for (let i=0; i<COUNT; i++){
+    const el = document.createElement('span');
+    el.className = 'floaty';
+    el.textContent = glyphs[Math.floor(Math.random()*glyphs.length)];
+
+    const x = rand(0, 100).toFixed(2) + "vw";
+    const dx = rand(-6, 6).toFixed(2) + "vw";
+    const sway = rand(-18, 18).toFixed(2) + "px";
+    const o = rand(0.35, 0.95).toFixed(2);
+
+    // Much slower
+    const dur = rand(28, 55).toFixed(2) + "s";
+    const delay = rand(-55, 0).toFixed(2) + "s"; // pre-fill the screen
+    const size = rand(12, 22).toFixed(0) + "px";
+
+    el.style.setProperty('--x', x);
+    el.style.setProperty('--dx', dx);
+    el.style.setProperty('--sway', sway);
+    el.style.setProperty('--o', o);
+    el.style.fontSize = size;
+
+    el.style.animationDuration = `${dur}, ${rand(4,10).toFixed(2)}s, ${rand(6,14).toFixed(2)}s`;
+    el.style.animationDelay = `${delay}, ${rand(-10,0).toFixed(2)}s, ${rand(-14,0).toFixed(2)}s`;
+
+    host.appendChild(el);
+  }
+}
+
+// ===== Constellation background =====
+function constellationInit(){
+  const canvas = $('#constellation');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  let W, H, points;
+
+  const resize = () => {
+    W = canvas.width = window.innerWidth * devicePixelRatio;
+    H = canvas.height = window.innerHeight * devicePixelRatio;
+    canvas.style.width = window.innerWidth + "px";
+    canvas.style.height = window.innerHeight + "px";
+
+    const N = Math.floor((window.innerWidth * window.innerHeight) / 28000);
+    points = Array.from({length: Math.max(30, N)}, () => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.25 * devicePixelRatio,
+      vy: (Math.random() - 0.5) * 0.25 * devicePixelRatio
+    }));
+  };
+
+  const step = () => {
+    ctx.clearRect(0,0,W,H);
+
+    // points
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
+    for (const p of points){
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0 || p.x > W) p.vx *= -1;
+      if (p.y < 0 || p.y > H) p.vy *= -1;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 1.2 * devicePixelRatio, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // connections
+    for (let i=0; i<points.length; i++){
+      for (let j=i+1; j<points.length; j++){
+        const a = points[i], b = points[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const d2 = dx*dx + dy*dy;
+        const max = (160*devicePixelRatio) ** 2;
+        if (d2 < max){
+          const alpha = 0.18 * (1 - d2/max);
+          ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+          ctx.lineWidth = 1 * devicePixelRatio;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
         }
       }
-
-      // move
-      for (const p of pts) {
-        p.x += p.vx; p.y += p.vy;
-        if (p.x < -20) p.x = w + 20;
-        if (p.x > w + 20) p.x = -20;
-        if (p.y < -20) p.y = h + 20;
-        if (p.y > h + 20) p.y = -20;
-      }
-
-      requestAnimationFrame(draw);
-    };
-
-    resize();
-    draw();
-    window.addEventListener("resize", resize);
-  }
-
-  // ===== Music toggle (persists) =====
-  const audio = document.getElementById("bgm");
-  const btn = document.getElementById("musicBtn");
-
-  if (audio && btn) {
-    // gentle defaults
-    audio.loop = true;
-    audio.volume = 0.30;
-
-    const KEY = "ramya_bgm_on";
-    const saved = localStorage.getItem(KEY);
-    const shouldPlay = saved === "1"; // only autoplay if user previously enabled
-
-    const setUI = (on) => {
-      btn.classList.toggle("on", on);
-      btn.setAttribute("aria-pressed", on ? "true" : "false");
-      btn.querySelector(".label").textContent = on ? "Music: On" : "Music: Off";
-    };
-
-    const tryPlay = async () => {
-      try {
-        await audio.play();
-        setUI(true);
-        localStorage.setItem(KEY, "1");
-      } catch {
-        // autoplay blocked until a user gesture; keep UI off
-        setUI(false);
-        localStorage.setItem(KEY, "0");
-      }
-    };
-
-    const stop = () => {
-      audio.pause();
-      audio.currentTime = 0;
-      setUI(false);
-      localStorage.setItem(KEY, "0");
-    };
-
-    btn.addEventListener("click", async () => {
-      if (audio.paused) await tryPlay();
-      else stop();
-    });
-
-    // restore preference
-    if (shouldPlay) {
-      // attempt; if blocked, user can press button
-      tryPlay();
-    } else {
-      setUI(false);
     }
-  }
-})();
 
-// ===== Carousel logic =====
+    requestAnimationFrame(step);
+  };
+
+  window.addEventListener('resize', resize);
+  resize();
+  step();
+}
+
+// ===== Carousel logic (no autoplay, hide controls if 1 slide) =====
 function initCarousels(){
-  const carousels = document.querySelectorAll('.carousel');
+  const carousels = $$('.carousel');
+
   carousels.forEach((carousel) => {
-    const track = carousel.querySelector('.carouselTrack');
-    const slides = [...carousel.querySelectorAll('.slide')];
-    const prev = carousel.querySelector('[data-prev]');
-    const next = carousel.querySelector('[data-next]');
-    const dotsWrap = carousel.querySelector('.dots');
+    const track = $('.carouselTrack', carousel);
+    const slides = $$('.slide', carousel);
+    const prev = $('[data-prev]', carousel);
+    const next = $('[data-next]', carousel);
+    const dotsWrap = $('.dots', carousel);
+    const nav = $('.carouselNav', carousel);
 
     if (!track || slides.length === 0) return;
 
-    let idx = 0;
-    let timer = null;
-    const autoplayMs = Number(carousel.dataset.autoplay || 0);
+    // set blurred background per slide
+    slides.forEach(slide => {
+      const img = $('img', slide);
+      const frame = $('.imgFrame', slide);
+      if (img && frame){
+        frame.style.setProperty('--bg', `url("${img.getAttribute('src')}")`);
+      }
+    });
 
-    function renderDots(){
+    let idx = 0;
+    let x0 = null;
+
+    const renderDots = () => {
       if (!dotsWrap) return;
       dotsWrap.innerHTML = '';
       slides.forEach((_, i) => {
         const b = document.createElement('button');
         b.className = 'dotBtn' + (i === idx ? ' active' : '');
         b.type = 'button';
-        b.addEventListener('click', () => { goTo(i); restart(); });
+        b.addEventListener('click', () => goTo(i));
         dotsWrap.appendChild(b);
       });
-    }
+    };
 
-    function goTo(i){
+    const goTo = (i) => {
       idx = (i + slides.length) % slides.length;
       track.style.transform = `translateX(${-idx * 100}%)`;
       if (dotsWrap){
         [...dotsWrap.children].forEach((d, k) => d.classList.toggle('active', k === idx));
       }
-    }
+    };
 
-    function step(dir){
-      goTo(idx + dir);
-      restart();
-    }
-
-    function start(){
-      if (!autoplayMs || slides.length < 2) return;
-      timer = setInterval(() => goTo(idx + 1), autoplayMs);
-    }
-    function stop(){
-      if (timer) clearInterval(timer);
-      timer = null;
-    }
-    function restart(){
-      stop(); start();
-    }
+    const step = (dir) => goTo(idx + dir);
 
     if (prev) prev.addEventListener('click', () => step(-1));
     if (next) next.addEventListener('click', () => step(1));
 
-    // swipe support
-    let x0 = null;
-    track.addEventListener('pointerdown', (e) => { x0 = e.clientX; track.setPointerCapture(e.pointerId); stop(); });
+    // swipe
+    track.addEventListener('pointerdown', (e) => {
+      x0 = e.clientX;
+      track.setPointerCapture(e.pointerId);
+    });
     track.addEventListener('pointerup', (e) => {
       if (x0 === null) return;
       const dx = e.clientX - x0;
       x0 = null;
       if (Math.abs(dx) > 40) step(dx < 0 ? 1 : -1);
-      else restart();
     });
 
-    // pause on hover
-    carousel.addEventListener('mouseenter', stop);
-    carousel.addEventListener('mouseleave', start);
+    // hide controls if single slide
+    if (slides.length < 2){
+      if (nav) nav.style.display = 'none';
+      if (dotsWrap) dotsWrap.style.display = 'none';
+    } else {
+      renderDots();
+    }
 
-    renderDots();
     goTo(0);
-    start();
   });
 }
 
-// run after page load
-window.addEventListener('load', initCarousels);
+// allow index.html to refresh visible scene carousels
+window.refreshCarousels = () => initCarousels();
 
-
-
+// ===== Init =====
+window.addEventListener('load', () => {
+  typewriter();
+  musicInit();
+  floatiesInit();
+  constellationInit();
+  initCarousels();
+});
