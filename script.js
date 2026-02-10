@@ -66,7 +66,7 @@ function floatiesInit(){
 
   // A2 mix: petals + hearts + sparkles
   const glyphs = ["🌸","🌷","💗","💖","✨","💐","🌺","🌼","💕","✨"];
-  const COUNT = 600; // denser
+  const COUNT = 400; // denser
 
   const rand = (a,b) => a + Math.random()*(b-a);
 
@@ -81,7 +81,7 @@ function floatiesInit(){
     const o = rand(0.35, 0.95).toFixed(2);
 
     // Much slower
-    const dur = rand(45, 80).toFixed(2) + "s";
+    const dur = rand(20, 50).toFixed(2) + "s";
     const delay = rand(-55, 0).toFixed(2) + "s"; // pre-fill the screen
     const size = rand(12, 22).toFixed(0) + "px";
 
@@ -248,5 +248,6 @@ window.addEventListener('load', () => {
   constellationInit();
   initCarousels();
 });
+
 
 
